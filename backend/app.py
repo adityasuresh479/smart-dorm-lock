@@ -1,22 +1,42 @@
-from flask import Flask
-from flask_jwt_extended import JWTManager
-from auth import auth_bp
-from recognition import recognition_bp
+from flask import Flask, request, jsonify
+from recognition import recognize_face
+from auth import verify_user
+import RPi.GPIO as GPIO
+import time
 
 app = Flask(__name__)
 
-# Set JWT Secret Key (Change this in production!)
-app.config["JWT_SECRET_KEY"] = "super-secret-key"
-jwt = JWTManager(app)
+# GPIO setup for door lock (modify pin based on your setup)
+LOCK_PIN = 18
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LOCK_PIN, GPIO.OUT)
+GPIO.output(LOCK_PIN, GPIO.LOW)  # Start with the door locked
 
-# Register blueprints
-app.register_blueprint(auth_bp, url_prefix="/auth")
-app.register_blueprint(recognition_bp, url_prefix="/recognition")
+def unlock_door():
+    """Unlock the door for 5 seconds and then lock it"""
+    GPIO.output(LOCK_PIN, GPIO.HIGH)
+    time.sleep(5)
+    GPIO.output(LOCK_PIN, GPIO.LOW)  # Automatically locks after 5 seconds
 
-@app.route("/", methods=["GET"])
-def home():
-    return {"message": "Smart Dorm Lock API is running!"}
+
+@app.route('/scan', methods=['POST'])
+def scan():
+    if 'image' not in request.files:
+        return jsonify({"message": "No image provided"}), 400
+
+    file = request.files['image']
+    
+    # Process the image for facial recognition
+    recognized_user = recognize_face(file)
+    
+    if recognized_user:
+        if verify_user(recognized_user):
+            unlock_door()
+            return jsonify({"message": "Access granted", "user": recognized_user}), 200
+        else:
+            return jsonify({"message": "Unauthorized user"}), 403
+    else:
+        return jsonify({"message": "Face not recognized"}), 401
 
 if __name__ == "__main__":
-    app.run(debug=True)
-
+    app.run(host="0.0.0.0", port=5000, debug=True)

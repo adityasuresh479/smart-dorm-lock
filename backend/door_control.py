@@ -13,3 +13,10 @@ def unlock_door():
     time.sleep(0.5)
     pwm.ChangeDutyCycle(0)
     print("Door Unlocked!")
+
+def lock_door():
+    """Rotate servo to lock position"""
+    pwm.ChangeDutyCycle(2)  # Adjust as per servo position
+    time.sleep(0.5)
+    pwm.ChangeDutyCycle(0)
+    print("Door Locked!")

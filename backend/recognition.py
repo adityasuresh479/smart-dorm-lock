@@ -1,37 +1,45 @@
 import face_recognition
 import numpy as np
 import cv2
-from flask import Blueprint, request, jsonify
-from database import find_user
-from door_control import unlock_door
+import os
+from database import get_face_encodings
+# Directory where known user images are stored
+KNOWN_FACES_DIR = "data"
 
-recognition_bp = Blueprint("recognition", __name__)
+# Load known face encodings from the database
+face_data = get_face_encodings()
+known_face_names, known_face_encodings = zip(*face_data) if face_data else ([], [])
 
-def get_face_encodings(user_data):
-    """Retrieve face encodings from stored user data"""
-    return np.array(user_data["face_encoding"]) if user_data else None
 
-@recognition_bp.route("/verify", methods=["POST"])
-def verify_face():
-    """Verify a face and unlock the door if recognized"""
-    image = request.files["image"].read()
-    frame = np.frombuffer(image, dtype=np.uint8)
-    frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+# Load and encode faces from the "data/" folder
+for filename in os.listdir(KNOWN_FACES_DIR):
+    if filename.endswith(".jpg") or filename.endswith(".png"):
+        image_path = os.path.join(KNOWN_FACES_DIR, filename)
+        image = face_recognition.load_image_file(image_path)
+        encodings = face_recognition.face_encodings(image)
 
-    # Get stored face encodings
-    users = users_collection.find()
-    known_encodings = [get_face_encodings(user) for user in users]
-    known_names = [user["email"] for user in users]
+        if encodings:
+            known_face_encodings.append(encodings[0])
+            known_face_names.append(os.path.splitext(filename)[0])  # Use filename as name
 
-    face_locations = face_recognition.face_locations(frame)
-    face_encodings = face_recognition.face_encodings(frame, face_locations)
+def recognize_face(image_file):
+    """Recognizes face from an uploaded image"""
+    
+    # Load image and find face encodings
+    image = face_recognition.load_image_file(image_file)
+    face_encodings = face_recognition.face_encodings(image)
 
-    for encoding in face_encodings:
-        matches = face_recognition.compare_faces(known_encodings, encoding, tolerance=0.6)
-        if True in matches:
-            match_index = matches.index(True)
-            user_email = known_names[match_index]
-            unlock_door()  # Unlock the door if verified
-            return jsonify({"status": "Authorized", "user": user_email})
+    if not face_encodings:
+        return None  # No face detected
 
-    return jsonify({"status": "Denied"}), 401
+    face_encoding = face_encodings[0]  # Use first face detected
+    matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+    face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+
+    # Find the best match
+    best_match_index = np.argmin(face_distances) if len(face_distances) > 0 else None
+
+    if best_match_index is not None and matches[best_match_index]:
+        return known_face_names[best_match_index]  # Return the recognized username
+    
+    return None  # No match found
