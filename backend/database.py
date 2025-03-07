@@ -41,12 +41,10 @@ def get_access_logs():
 def add_face_encoding(username, encoding):
     """Store a user's face encoding in the database"""
     try:
-        print(f"Attempting to store face encoding for {username}")  # Debug print
         result = db.faces.insert_one({"username": username, "encoding": encoding.tolist()})
         print(f"Face encoding for {username} stored successfully with ID: {result.inserted_id}")
     except Exception as e:
         print(f"Error storing face encoding for {username}: {e}")
-
 
 def get_face_encodings():
     """Retrieve all face encodings"""

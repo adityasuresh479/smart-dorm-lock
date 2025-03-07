@@ -22,10 +22,11 @@ def store_encodings():
         return
 
     # Try storing in MongoDB
-    for username, encoding in face_data.items():
+    for username, encodings in face_data.items():
         try:
-            add_face_encoding(username, np.array(encoding))  # Convert list back to NumPy array
-            print(f"Stored {username}'s face encoding in MongoDB")
+            for encoding in encodings:  # Iterate through multiple encodings
+                add_face_encoding(username, np.array(encoding))  # Convert list back to NumPy array
+                print(f"Stored {username}'s face encoding in MongoDB")
         except Exception as e:
             print(f"Failed to store {username}'s encoding in MongoDB: {e}")
 
