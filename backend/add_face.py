@@ -1,60 +1,57 @@
-import face_recognition
-import numpy as np
+from deepface import DeepFace
+from database import add_face_embedding, add_user
 import os
-import json
+import numpy as np
+from datetime import datetime
 
-KNOWN_FACES_DIR = "data"  # Folder containing known faces
-LOCAL_STORAGE_FILE = "face_encodings.json"  # Temporary local file
+KNOWN_FACES_DIR = "data"  # Each subfolder = one user
 
-def store_face_encodings():
-    # Load existing encodings if the file exists
-    if os.path.exists(LOCAL_STORAGE_FILE):
-        with open(LOCAL_STORAGE_FILE, "r") as f:
+def extract_and_store_embeddings():
+    if not os.path.exists(KNOWN_FACES_DIR):
+        print(f"Directory '{KNOWN_FACES_DIR}' does not exist.")
+        return
+
+    for username in os.listdir(KNOWN_FACES_DIR):
+        user_folder = os.path.join(KNOWN_FACES_DIR, username)
+        if not os.path.isdir(user_folder):
+            continue  # Skip files, only use directories as users
+
+        print(f"\nProcessing user: {username}")
+        embeddings_stored = 0
+
+        for filename in os.listdir(user_folder):
+            if not filename.lower().endswith((".jpg", ".jpeg", ".png")):
+                continue
+
+            image_path = os.path.join(user_folder, filename)
+            print(f"  → {filename}")
+
             try:
-                face_data = json.load(f)
-                if not isinstance(face_data, dict):
-                    face_data = {}  # Ensure it's a dictionary
-            except (json.JSONDecodeError, TypeError):
-                face_data = {}
-    else:
-        face_data = {}
+                representations = DeepFace.represent(
+                    img_path=image_path,
+                    model_name="Facenet",
+                    detector_backend="retinaface",
+                    enforce_detection=True
+                )
 
-    for filename in os.listdir(KNOWN_FACES_DIR):
-        if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-            image_path = os.path.join(KNOWN_FACES_DIR, filename)
-            print(f"Processing {filename}...")  # Debugging print
+                for obj in representations:
+                    embedding = obj["embedding"]
+                    add_face_embedding(username, np.array(embedding))
+                    embeddings_stored += 1
 
-            image = face_recognition.load_image_file(image_path)
-            encodings = face_recognition.face_encodings(image)
+            except Exception as e:
+                print(f"    ⚠️  Failed to process {filename}: {e}")
 
-            if encodings:
-                username = os.path.splitext(filename)[0]  # Remove file extension
-                
-                # Ensure storage format is consistent
-                if username not in face_data:
-                    face_data[username] = []
-
-                # Convert to NumPy and ensure shape consistency
-                new_encodings = [enc.tolist() for enc in encodings]
-                existing_encodings = face_data[username]
-
-                # Only add unique encodings
-                for enc in new_encodings:
-                    if not any(np.allclose(np.array(enc), np.array(existing), atol=1e-6) for existing in existing_encodings):
-                        face_data[username].append(enc)
-
-                print(f"Stored {len(new_encodings)} new face encodings for {username}")
-
-            else:
-                print(f"No face detected in {filename}")
-
-    # Save locally only if faces were found
-    if face_data:
-        with open(LOCAL_STORAGE_FILE, "w") as f:
-            json.dump(face_data, f, indent=4)  # Pretty-print JSON for readability
-        print(f"Encodings saved locally in {LOCAL_STORAGE_FILE}")
-    else:
-        print("No valid face encodings found. Check your images.")
+        if embeddings_stored > 0:
+            user_data = {
+                "username": username,
+                "email": f"{username}@example.com",  # Placeholder email
+                "created_at": datetime.now()
+            }
+            add_user(user_data)
+            print(f"Stored {embeddings_stored} embeddings for {username} and registered user in DB.")
+        else:
+            print(f"No valid faces found for {username}.")
 
 if __name__ == "__main__":
-    store_face_encodings()
+    extract_and_store_embeddings()

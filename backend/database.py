@@ -56,3 +56,22 @@ def get_face_encodings():
     except Exception as e:
         print(f"Error retrieving face encodings: {e}")
         return []
+def add_face_embedding(username, embedding):
+    """Store a DeepFace facial embedding in the database"""
+    try:
+        result = db.deepface_faces.insert_one({
+            "username": username,
+            "embedding": embedding.tolist()
+        })
+        print(f"DeepFace embedding for {username} stored with ID: {result.inserted_id}")
+    except Exception as e:
+        print(f"Error storing DeepFace embedding for {username}: {e}")
+
+def get_face_embeddings():
+    """Retrieve all DeepFace face embeddings"""
+    try:
+        entries = db.deepface_faces.find({})
+        return [(entry["username"], np.array(entry["embedding"])) for entry in entries]
+    except Exception as e:
+        print(f"Error retrieving DeepFace embeddings: {e}")
+        return []

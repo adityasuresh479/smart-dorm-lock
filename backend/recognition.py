@@ -1,70 +1,55 @@
-import face_recognition
+from deepface import DeepFace
+from database import get_face_embeddings
 import numpy as np
-import json
 import os
 import sys
 
-LOCAL_STORAGE_FILE = "face_encodings.json"  # Temporary storage for face encodings
-
-# Load locally stored face encodings if the file exists
-if os.path.exists(LOCAL_STORAGE_FILE):
-    with open(LOCAL_STORAGE_FILE, "r") as f:
-        face_data = json.load(f)
-
-    known_face_names = list(face_data.keys())
-    
-    # Ensure all encodings are NumPy arrays and have the correct shape
-    known_face_encodings = []
-    for name, encodings in face_data.items():
-        if isinstance(encodings, list):  # Ensure it's a list
-            np_encodings = [np.array(enc) for enc in encodings if isinstance(enc, list) and len(enc) == 128]
-            if np_encodings:
-                avg_encoding = np.mean(np_encodings, axis=0)  # Average encoding for stability
-                avg_encoding = avg_encoding / np.linalg.norm(avg_encoding)  # Normalize encoding
-                known_face_encodings.append(avg_encoding)
-            else:
-                known_face_names.remove(name)  # Remove names without valid encodings
-else:
-    known_face_names = []
-    known_face_encodings = []
+def cosine_similarity(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 def recognize_face(image_file):
-    """Recognizes a face from an uploaded image and returns similarity scores"""
+    """Recognizes a face from an uploaded image using FaceNet embeddings"""
     
-    # Load the input image and extract face encodings
-    image = face_recognition.load_image_file(image_file)
-    face_encodings = face_recognition.face_encodings(image)
+    try:
+        # Generate embedding for input image
+        representation = DeepFace.represent(
+            img_path=image_file,
+            model_name="Facenet",
+            detector_backend="retinaface",
+            enforce_detection=True
+        )[0]["embedding"]
+        input_embedding = np.array(representation)
+    except Exception as e:
+        print(f"Face detection failed: {e}")
+        return None, None
 
-    if not face_encodings:
-        print("No face detected in the input image.")
-        return None, None  # No face detected
+    known_embeddings = get_face_embeddings()
+    if not known_embeddings:
+        print("No stored face embeddings in database.")
+        return None, None
 
-    face_encoding = face_encodings[0]  # Use the first detected face
-    face_encoding = face_encoding / np.linalg.norm(face_encoding)  # Normalize encoding
+    similarities = []
+    names = []
 
-    if len(known_face_encodings) == 0:
-        print("No stored face encodings found to compare against.")
-        return None, None  # No match found
+    for username, stored_embedding in known_embeddings:
+        similarity = cosine_similarity(input_embedding, stored_embedding)
+        similarities.append(similarity)
+        names.append(username)
 
-    # Convert known face encodings to a NumPy array (ensure it's properly shaped)
-    known_face_encodings_array = np.array(known_face_encodings)
+    # Compute best match
+    best_index = np.argmax(similarities)
+    best_similarity = similarities[best_index] * 100
+    best_name = names[best_index]
 
-    # Compute cosine similarity instead of Euclidean distance
-    similarities = np.dot(known_face_encodings_array, face_encoding)  # Cosine similarity
-
-    # Debugging: Print all similarity scores
+    # Debug output
     print("\nSimilarity Scores:")
-    for i, similarity in enumerate(similarities):
-        similarity_percentage = similarity * 100  # Convert to percentage
-        print(f"{known_face_names[i]}: {similarity_percentage:.2f}%")
+    for name, score in zip(names, similarities):
+        print(f"{name}: {score * 100:.2f}%")
 
-    best_match_index = np.argmax(similarities)  # Find best match
-    best_similarity = similarities[best_match_index] * 100  # Convert to percentage
+    if best_similarity > 70:
+        return best_name, round(best_similarity, 2)
 
-    if best_similarity > 95:  # Adjustable threshold
-        return known_face_names[best_match_index], round(best_similarity, 2)
-
-    return None, None  # No match found
+    return None, None
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -81,4 +66,4 @@ if __name__ == "__main__":
     if recognized_name:
         print(f"\nFace recognized as: {recognized_name} with {similarity:.2f}% similarity")
     else:
-        print("\nNo match found")
+        print("\nNo match found.")
