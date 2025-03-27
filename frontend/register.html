@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register with Webcam</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <div class="bg-white p-6 rounded shadow-md space-y-4 w-96 text-center">
+    <h2 class="text-xl font-semibold">Register</h2>
+
+    <input id="email" type="email" placeholder="Email" required class="w-full px-3 py-2 border rounded">
+    <input id="password" type="password" placeholder="Password" required class="w-full px-3 py-2 border rounded">
+
+    <video id="video" autoplay class="w-full rounded border" style="display: none;"></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <button id="registerBtn" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Register</button>
+    <p id="response" class="text-sm text-gray-700 mt-2"></p>
+  </div>
+
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const registerBtn = document.getElementById("registerBtn");
+    const responseText = document.getElementById("response");
+
+    registerBtn.addEventListener("click", async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        responseText.innerText = "Please enter email and password.";
+        return;
+      }
+
+      responseText.innerText = "Activating camera...";
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = "block";
+
+        // Wait for camera to be ready
+        await new Promise(r => setTimeout(r, 1000));
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+
+        stream.getTracks().forEach(track => track.stop());
+        video.style.display = "none";
+
+        canvas.toBlob(async (blob) => {
+          const formData = new FormData();
+          formData.append("email", email);
+          formData.append("password", password);
+          formData.append("image", blob, "face.jpg");
+
+          const res = await fetch("/register", {
+            method: "POST",
+            body: formData
+          });
+
+          const data = await res.json();
+          responseText.innerText = data.message || data.error;
+        }, "image/jpeg");
+
+      } catch (err) {
+        responseText.innerText = "Camera error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

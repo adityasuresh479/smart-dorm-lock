@@ -1,111 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Smart Dorm Room Lock – Login</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      padding: 0;
-      background-color: #f4f4f4;
-    }
-    h1 {
-      color: #333;
-    }
-    form {
-      margin-bottom: 20px;
-      padding: 15px;
-      background: #fff;
-      border: 1px solid #ccc;
-      max-width: 400px;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-    }
-    input, button {
-      padding: 8px;
-      margin-top: 5px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    button {
-      cursor: pointer;
-      background-color: #4285F4;
-      color: white;
-      border: none;
-    }
-    #loginMessage {
-      margin-top: 10px;
-      padding: 10px;
-      background: #e9e9e9;
-      border: 1px solid #ddd;
-      max-width: 400px;
-    }
-    a {
-      display: inline-block;
-      margin-top: 10px;
-      color: #4285F4;
-      text-decoration: none;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>Login to Smart Dorm Room Lock</h1>
-
-  <!-- Login Form -->
-  <form id="loginForm">
-    <label for="loginEmail">Email:</label>
-    <input type="email" id="loginEmail" name="email" required />
-
-    <label for="loginPassword">Password:</label>
-    <input type="password" id="loginPassword" name="password" required />
-
-    <button type="submit">Login</button>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <form id="loginForm" class="bg-white p-6 rounded shadow-md space-y-4 w-80">
+    <h2 class="text-xl font-semibold text-center">Login</h2>
+    <input type="email" name="email" placeholder="Email" required class="w-full px-3 py-2 border rounded">
+    <input type="password" name="password" placeholder="Password" required class="w-full px-3 py-2 border rounded">
+    <button type="submit" class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">Login</button>
+    <p id="response" class="text-center text-sm text-gray-600"></p>
   </form>
 
-  <!-- Display Login Result -->
-  <div id="loginMessage"></div>
-
-  <!-- (Optional) Link to Registration Page -->
-  <!-- If you have a separate registration page, you can link to it here:
-  <a href="register.html">Need an account? Register here</a>
-  -->
-
   <script>
-    // Base URL for your Flask API (change if your server is hosted elsewhere)
-    const apiBaseUrl = 'http://localhost:5000';
-
-    // Handle Login Form Submission
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    document.getElementById("loginForm").addEventListener("submit", async function (e) {
       e.preventDefault();
-      const email = document.getElementById('loginEmail').value;
-      const password = document.getElementById('loginPassword').value;
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email, password })
-        });
-
-        const data = await response.json();
-        
-        if (response.ok && data.token) {
-          // Store JWT token in localStorage for future requests
-          localStorage.setItem('jwtToken', data.token);
-          document.getElementById('loginMessage').textContent = 'Login successful!';
-        } else {
-          // Show error message from backend
-          document.getElementById('loginMessage').textContent = data.error || 'Login failed.';
-        }
-      } catch (error) {
-        document.getElementById('loginMessage').textContent = 'Error logging in.';
-      }
+      const formData = new FormData(this);
+      const res = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password")
+        })
+      });
+      const data = await res.json();
+      document.getElementById("response").innerText = data.message || data.error;
     });
   </script>
 </body>

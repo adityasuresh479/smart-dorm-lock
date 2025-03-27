@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Face Unlock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <div class="bg-white p-6 rounded shadow-md space-y-4 w-96 text-center">
+    <h2 class="text-xl font-semibold">Face Unlock</h2>
+
+    <video id="video" autoplay class="w-full rounded border" style="display: none;"></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <button id="unlockBtn" class="w-full bg-purple-500 text-white py-2 rounded hover:bg-purple-600">Unlock</button>
+    <p id="response" class="text-sm text-gray-700 mt-2"></p>
+  </div>
+
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const unlockBtn = document.getElementById("unlockBtn");
+    const responseText = document.getElementById("response");
+
+    unlockBtn.addEventListener("click", async () => {
+      responseText.innerText = "Activating camera...";
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = "block";
+
+        // Wait a moment for camera to warm up
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Draw frame to canvas
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+
+        // Stop webcam
+        stream.getTracks().forEach(track => track.stop());
+        video.style.display = "none";
+
+        // Send image
+        canvas.toBlob(async (blob) => {
+          const formData = new FormData();
+          formData.append("image", blob, "webcam.jpg");
+
+          const res = await fetch("/unlock", {
+            method: "POST",
+            body: formData
+          });
+
+          const data = await res.json();
+          responseText.innerText = data.message || data.error;
+        }, "image/jpeg");
+
+      } catch (err) {
+        responseText.innerText = "Camera error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

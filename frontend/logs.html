@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Access Logs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-3xl mx-auto bg-white rounded shadow p-6">
+    <h1 class="text-2xl font-bold mb-4 text-center">Access Logs</h1>
+    <table class="w-full table-auto border-collapse">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="border px-4 py-2 text-left">User</th>
+          <th class="border px-4 py-2 text-left">Result</th>
+          <th class="border px-4 py-2 text-left">Time</th>
+        </tr>
+      </thead>
+      <tbody id="logTable" class="text-sm text-gray-800"></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/access-logs');
+        const logs = await res.json();
+
+        const table = document.getElementById("logTable");
+        table.innerHTML = "";
+
+        logs.forEach(log => {
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+            <td class="border px-4 py-2">${log.username}</td>
+            <td class="border px-4 py-2 ${log.success ? 'text-green-600' : 'text-red-600'}">
+              ${log.success ? '✅ Granted' : '❌ Denied'}
+            </td>
+            <td class="border px-4 py-2">${new Date(log.timestamp).toLocaleString()}</td>
+          `;
+
+          table.appendChild(row);
+        });
+
+      } catch (err) {
+        alert("Error loading access logs: " + err.message);
+      }
+    }
+
+    fetchLogs();
+  </script>
+</body>
+</html>
