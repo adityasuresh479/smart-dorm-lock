@@ -1,6 +1,7 @@
 from pymongo import MongoClient
-from datetime import datetime
 import numpy as np
+from datetime import datetime, timezone
+
 
 # Connect to MongoDB (Replace 'localhost' with your MongoDB server address if needed)
 client = MongoClient("mongodb://localhost:27017/")
@@ -26,11 +27,12 @@ def log_access(username, success):
     """Log user access attempts"""
     log_entry = {
         "username": username,
-        "success": success,
-        "timestamp": datetime.now()
+        "success": bool(success),
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
-    result = db.access_logs.insert_one(log_entry)
+    result = db.access_logs.insert_one(log_entry)  # ✅ FIX: assign result
     print(f"Access log added for {username} with ID: {result.inserted_id}")
+
 
 def get_access_logs():
     """Retrieve access logs"""

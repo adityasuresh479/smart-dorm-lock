@@ -1,1 +1,5 @@
+flask
+deepface
+pymongo
+werkzeug
 
