@@ -5,8 +5,10 @@ from deepface import DeepFace
 import os
 import numpy as np
 import traceback
+import time  # <-- ADD THIS for sleep()
 from datetime import datetime
-from database import add_user, get_face_embeddings, add_face_embedding, log_access, db
+from database import add_user, get_face_embeddings, add_face_embedding,get_access_logs,log_access, db
+from door_control import unlock_door, lock_door, cleanup  
 
 app = Flask(__name__)
 app.config["PROPAGATE_EXCEPTIONS"] = True
@@ -85,6 +87,7 @@ def login():
 
     return jsonify({"message": f"Welcome back, {email}!"})
 
+
 @app.route("/unlock", methods=["POST"])
 def unlock():
     image = request.files.get("image")
@@ -125,30 +128,39 @@ def unlock():
         access_granted = bool(best_similarity > 70)
         log_access(best_username, access_granted)
 
+        if access_granted:
+            unlock_door()  # <<< Unlock the door!
+            time.sleep(5)  # <<< Keep it unlocked for 5 seconds
+            lock_door()    # <<< Then lock it again
+
         return jsonify({
             "message": f"Access granted for {best_username}" if access_granted else "Access denied",
             "similarity": round(best_similarity, 2)
         })
-
-        import traceback
 
     except Exception as e:
         print("=== UNLOCK ERROR TRACE ===")
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/access-logs", methods=["GET"])
 def get_logs():
     try:
-        logs = db.access_logs.find({}, {"_id": 0}).sort("timestamp", -1)
-        return jsonify(list(logs))
+        logs = get_access_logs()
+        print("Access logs fetched:", logs)  # <=== ADD THIS
+        return jsonify(logs)
     except Exception as e:
+        print("Error fetching logs:", e)
         return jsonify({"error": str(e)}), 500
-
-
 
 
 # ========== MAIN ==========
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    try:
+        app.run(debug=True,use_reloader=False)
+    finally:
+        cleanup()  # <<< Important: release GPIO when server stops!
+
+

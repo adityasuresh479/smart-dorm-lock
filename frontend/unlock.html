@@ -23,17 +23,21 @@
     const responseText = document.getElementById("response");
 
     unlockBtn.addEventListener("click", async () => {
-      responseText.innerText = "Activating camera...";
+      responseText.innerText = "Starting camera...";
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         video.srcObject = stream;
         video.style.display = "block";
+        unlockBtn.disabled = true;
+        unlockBtn.innerText = "Camera On...";
 
-        // Wait a moment for camera to warm up
-        await new Promise(r => setTimeout(r, 1000));
+        responseText.innerText = "Position yourself in the frame...";
 
-        // Draw frame to canvas
+        // Wait for camera to stabilize (you can adjust this timing)
+        await new Promise(resolve => setTimeout(resolve, 5000));  // Wait for 5 seconds
+
+        // Capture frame
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext("2d").drawImage(video, 0, 0);
@@ -42,22 +46,34 @@
         stream.getTracks().forEach(track => track.stop());
         video.style.display = "none";
 
-        // Send image
+        responseText.innerText = "Sending captured image...";
+
+        // Send image to backend
         canvas.toBlob(async (blob) => {
           const formData = new FormData();
           formData.append("image", blob, "webcam.jpg");
 
-          const res = await fetch("/unlock", {
-            method: "POST",
-            body: formData
-          });
+          try {
+            const res = await fetch("/unlock", {
+              method: "POST",
+              body: formData
+            });
 
-          const data = await res.json();
-          responseText.innerText = data.message || data.error;
+            const data = await res.json();
+            responseText.innerText = data.message || data.error;
+            unlockBtn.disabled = false;
+            unlockBtn.innerText = "Unlock Again";
+          } catch (err) {
+            responseText.innerText = "Upload error: " + err.message;
+            unlockBtn.disabled = false;
+            unlockBtn.innerText = "Unlock Again";
+          }
         }, "image/jpeg");
 
       } catch (err) {
         responseText.innerText = "Camera error: " + err.message;
+        unlockBtn.disabled = false;
+        unlockBtn.innerText = "Unlock";
       }
     });
   </script>

@@ -46,7 +46,7 @@ def recognize_face(image_file):
     for name, score in zip(names, similarities):
         print(f"{name}: {score * 100:.2f}%")
 
-    if best_similarity > 70:
+    if best_similarity > 90:
         return best_name, round(best_similarity, 2)
 
     return None, None
